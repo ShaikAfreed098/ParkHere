@@ -10,6 +10,6 @@ Write-Host "Stopping existing containers and removing volumes..." -ForegroundCol
 docker compose down -v
 
 Write-Host "Starting containers..." -ForegroundColor Green
-docker compose up -d
+docker compose up -d --build
 
 Write-Host "Database reset complete. Flyway schema will re-initialize on startup." -ForegroundColor Green

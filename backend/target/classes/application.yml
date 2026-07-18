@@ -6,6 +6,17 @@ server:
 spring:
   application:
     name: parkhere-backend
+  mail:
+    host: ${SMTP_HOST:smtp.mailtrap.io}
+    port: ${SMTP_PORT:2525}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   datasource:
     url: jdbc:postgresql://localhost:5432/parkhere
     username: postgres
@@ -30,11 +41,14 @@ spring:
 
 app:
   jwt:
-    # 256-bit secret key for HMAC-SHA256
-    secret: 9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z
-    access-expiration-ms: 86400000 # 24 hours
+    # 256-bit secret key for HMAC-SHA256 loaded from environment variable JWT_SECRET
+    secret: ${JWT_SECRET:9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z9a6Z}
+    access-expiration-ms: 900000 # 15 minutes
     refresh-expiration-ms: 604800000 # 7 days
+  cors:
+    allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
   upload:
     dir: c:/ParkHere/backend/uploads
   email:
     mock-dir: C:/Users/SHAIK AFREED/.gemini/antigravity-ide/scratch/emails
+    use-mock: ${SMTP_USE_MOCK:true}

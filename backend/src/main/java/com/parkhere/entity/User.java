@@ -41,8 +41,14 @@ public class User {
     @Column(name = "verification_token")
     private String verificationToken;
 
+    @Column(name = "otp_generated_at")
+    private LocalDateTime otpGeneratedAt;
+
     @Column(name = "password_reset_token")
     private String passwordResetToken;
+
+    @Column(name = "reset_token_generated_at")
+    private LocalDateTime resetTokenGeneratedAt;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

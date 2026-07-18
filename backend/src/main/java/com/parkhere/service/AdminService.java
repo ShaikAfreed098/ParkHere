@@ -41,81 +41,60 @@ public class AdminService {
 
     @Transactional(readOnly = true)
     public DashboardMetricsDto getDashboardMetrics() {
-        // 1. Basic Stats
-        List<Payment> successfulPayments = paymentRepository.findAll().stream()
-                .filter(p -> "SUCCESS".equals(p.getStatus()))
-                .collect(Collectors.toList());
-
-        BigDecimal totalRevenue = successfulPayments.stream()
-                .map(p -> p.getBooking().getTotalAmount())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // 1. Basic Stats (directly using DB-level aggregates)
+        BigDecimal totalRevenueVal = paymentRepository.sumTotalRevenue();
+        BigDecimal totalRevenue = totalRevenueVal != null ? totalRevenueVal : BigDecimal.ZERO;
 
         long totalBookings = bookingRepository.count();
-        long activeBookings = bookingRepository.findAll().stream()
-                .filter(b -> "ACTIVE".equals(b.getStatus()))
-                .count();
+        long activeBookings = bookingRepository.countByStatus("ACTIVE");
         long totalUsers = userRepository.count();
 
         long totalSlots = parkingSlotRepository.count();
-        long occupiedSlots = parkingSlotRepository.findAll().stream()
-                .filter(s -> "OCCUPIED".equals(s.getStatus()) || "RESERVED".equals(s.getStatus()))
-                .count();
+        long occupiedSlots = parkingSlotRepository.countOccupiedOrReservedSlots();
         double occupancyRate = totalSlots > 0 ? ((double) occupiedSlots / totalSlots) * 100 : 0.0;
 
-        // 2. Revenue Chart Data (Aggregated by Month)
-        Map<Month, BigDecimal> monthlyRev = new EnumMap<>(Month.class);
-        Map<Month, Long> monthlyBkg = new EnumMap<>(Month.class);
-        for (Month m : Month.values()) {
-            monthlyRev.put(m, BigDecimal.ZERO);
-            monthlyBkg.put(m, 0L);
+        // 2. Revenue Chart Data (Aggregated by Month at database level)
+        List<Object[]> monthlyRevList = paymentRepository.getMonthlyRevenueMetrics();
+        List<Object[]> monthlyBkgList = bookingRepository.getMonthlyBookingsCount();
+
+        Map<Integer, BigDecimal> monthlyRev = new HashMap<>();
+        Map<Integer, Long> monthlyBkg = new HashMap<>();
+        for (int i = 1; i <= 12; i++) {
+            monthlyRev.put(i, BigDecimal.ZERO);
+            monthlyBkg.put(i, 0L);
         }
 
-        // Aggregate actual DB payments
-        for (Payment p : successfulPayments) {
-            LocalDateTime dt = p.getCreatedAt();
-            if (dt != null) {
-                Month m = dt.getMonth();
-                monthlyRev.put(m, monthlyRev.get(m).add(p.getBooking().getTotalAmount()));
-            }
-        }
-        
-        List<Booking> allBookings = bookingRepository.findAll();
-        for (Booking b : allBookings) {
-            LocalDateTime dt = b.getCreatedAt();
-            if (dt != null) {
-                Month m = dt.getMonth();
-                monthlyBkg.put(m, monthlyBkg.get(m) + 1);
+        for (Object[] row : monthlyRevList) {
+            if (row[0] != null) {
+                int month = ((Number) row[0]).intValue();
+                BigDecimal val = (BigDecimal) row[1];
+                monthlyRev.put(month, val);
             }
         }
 
-        // Fallback standard baseline seed values for dashboard rendering
+        for (Object[] row : monthlyBkgList) {
+            if (row[0] != null) {
+                int month = ((Number) row[0]).intValue();
+                long count = ((Number) row[1]).longValue();
+                monthlyBkg.put(month, count);
+            }
+        }
+
         String[] monthsShort = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-        BigDecimal[] baselineRev = {
-            BigDecimal.valueOf(42000), BigDecimal.valueOf(38000), BigDecimal.valueOf(51000),
-            BigDecimal.valueOf(47000), BigDecimal.valueOf(59000), BigDecimal.valueOf(63000),
-            BigDecimal.valueOf(71000), BigDecimal.valueOf(68000), BigDecimal.valueOf(74000),
-            BigDecimal.valueOf(82000), BigDecimal.valueOf(79000), BigDecimal.valueOf(91000)
-        };
-        long[] baselineBkg = {1240, 1100, 1480, 1350, 1720, 1890, 2100, 1980, 2200, 2410, 2300, 2680};
-
         List<DashboardMetricsDto.RevenueData> revenueDataList = new ArrayList<>();
         for (int i = 0; i < 12; i++) {
-            Month m = Month.of(i + 1);
-            BigDecimal val = monthlyRev.get(m);
-            long bkgs = monthlyBkg.get(m);
-            
-            // Add baseline values to make sure charts look premium even without historical DB data
-            BigDecimal totalRevVal = val.add(baselineRev[i]);
-            long totalBkgsVal = bkgs + baselineBkg[i];
+            BigDecimal val = monthlyRev.get(i + 1);
+            long bkgs = monthlyBkg.get(i + 1);
 
             revenueDataList.add(DashboardMetricsDto.RevenueData.builder()
                     .month(monthsShort[i])
-                    .revenue(totalRevVal)
-                    .bookings(totalBkgsVal)
+                    .revenue(val)
+                    .bookings(bkgs)
                     .build());
         }
 
-        // 3. Vehicle Type counts
+        // 3. Vehicle Type counts (Aggregated at database level)
+        List<Object[]> vehicleCountsList = bookingRepository.getBookingCountByVehicleType();
         Map<String, Long> vehicleCounts = new HashMap<>();
         vehicleCounts.put("CAR", 0L);
         vehicleCounts.put("SUV", 0L);
@@ -123,17 +102,19 @@ public class AdminService {
         vehicleCounts.put("BIKE", 0L);
         vehicleCounts.put("MINI_TRUCK", 0L);
 
-        for (Booking b : allBookings) {
-            String type = b.getParkingSlot().getType();
-            vehicleCounts.put(type, vehicleCounts.getOrDefault(type, 0L) + 1);
+        for (Object[] row : vehicleCountsList) {
+            if (row[0] != null) {
+                String type = ((String) row[0]).toUpperCase();
+                long count = ((Number) row[1]).longValue();
+                vehicleCounts.put(type, count);
+            }
         }
 
-        // Fallbacks
-        long carVal = vehicleCounts.get("CAR") + 42;
-        long suvVal = vehicleCounts.get("SUV") + 28;
-        long evVal = vehicleCounts.get("EV") + 18;
-        long bikeVal = vehicleCounts.get("BIKE") + 8;
-        long truckVal = vehicleCounts.get("MINI_TRUCK") + 4;
+        long carVal = vehicleCounts.get("CAR");
+        long suvVal = vehicleCounts.get("SUV");
+        long evVal = vehicleCounts.get("EV");
+        long bikeVal = vehicleCounts.get("BIKE");
+        long truckVal = vehicleCounts.get("MINI_TRUCK");
 
         List<DashboardMetricsDto.VehicleData> vehicleDataList = Arrays.asList(
                 new DashboardMetricsDto.VehicleData("Car", carVal, "#2563EB"),
@@ -143,51 +124,40 @@ public class AdminService {
                 new DashboardMetricsDto.VehicleData("Truck", truckVal, "#8B5CF6")
         );
 
-        // 4. Utilization per ParkingLot
-        List<ParkingLot> lots = parkingLotRepository.findAll();
-        List<DashboardMetricsDto.UtilizationData> utilizationDataList = lots.stream().map(lot -> {
-            List<Floor> floors = floorRepository.findByParkingLotIdOrderByFloorNumberAsc(lot.getId());
-            long totalLotSlots = floors.stream()
-                    .flatMap(f -> parkingSlotRepository.findByFloorIdOrderBySlotNumberAsc(f.getId()).stream())
-                    .count();
-            
-            long occLotSlots = floors.stream()
-                    .flatMap(f -> parkingSlotRepository.findByFloorIdOrderBySlotNumberAsc(f.getId()).stream())
-                    .filter(s -> "OCCUPIED".equals(s.getStatus()) || "RESERVED".equals(s.getStatus()))
-                    .count();
-            
-            double rate = totalLotSlots > 0 ? ((double) occLotSlots / totalLotSlots) * 100 : 0.0;
-            
-            // Map to premium mock bounds if database has very low seeded numbers (e.g. 70%-95% range)
-            if (rate == 0.0) {
-                rate = 70.0 + (lot.getId() * 4.3) % 25.0; 
-            }
-
+        // 4. Utilization per ParkingLot (Calculated in a single DB query!)
+        List<Object[]> lotUtils = parkingSlotRepository.getParkingLotUtilization();
+        List<DashboardMetricsDto.UtilizationData> utilizationDataList = lotUtils.stream().map(row -> {
+            String name = (String) row[1];
+            double rate = row[2] != null ? ((Number) row[2]).doubleValue() : 0.0;
             return DashboardMetricsDto.UtilizationData.builder()
-                    .name(lot.getName().replace("ParkHere ", ""))
+                    .name(name.replace("ParkHere ", ""))
                     .value(Math.round(rate * 10.0) / 10.0)
                     .build();
         }).collect(Collectors.toList());
 
-        // 5. Daily bookings distribution
-        Map<DayOfWeek, Long> dailyCounts = new EnumMap<>(DayOfWeek.class);
-        for (DayOfWeek d : DayOfWeek.values()) {
-            dailyCounts.put(d, 0L);
+        // 5. Daily bookings distribution (Aggregated at database level)
+        List<Object[]> dailyCountsList = bookingRepository.getDailyBookingsDistribution();
+        Map<Integer, Long> dailyCounts = new HashMap<>();
+        for (int i = 0; i < 7; i++) {
+            dailyCounts.put(i, 0L); // 0 = Sunday, 1 = Monday, etc. (standard EXTRACT(DOW))
         }
-        for (Booking b : allBookings) {
-            if (b.getCreatedAt() != null) {
-                dailyCounts.put(b.getCreatedAt().getDayOfWeek(), dailyCounts.get(b.getCreatedAt().getDayOfWeek()) + 1);
+        for (Object[] row : dailyCountsList) {
+            if (row[0] != null) {
+                int dow = ((Number) row[0]).intValue();
+                long count = ((Number) row[1]).longValue();
+                dailyCounts.put(dow, count);
             }
         }
 
-        String[] daysShort = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
-        long[] baselineDaily = {142, 168, 155, 188, 214, 186, 121};
         List<DashboardMetricsDto.DailyData> dailyDataList = new ArrayList<>();
-        
+        // Group by Mon to Sun sequence to match original layout
+        int[] dowSequence = {1, 2, 3, 4, 5, 6, 0}; // Mon (1) to Sun (0)
+        String[] daysSequenceLabels = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+
         for (int i = 0; i < 7; i++) {
-            DayOfWeek dow = DayOfWeek.of(i + 1);
-            long count = dailyCounts.get(dow) + baselineDaily[i];
-            dailyDataList.add(new DashboardMetricsDto.DailyData(daysShort[i], count));
+            int dow = dowSequence[i];
+            long count = dailyCounts.get(dow);
+            dailyDataList.add(new DashboardMetricsDto.DailyData(daysSequenceLabels[i], count));
         }
 
         return DashboardMetricsDto.builder()

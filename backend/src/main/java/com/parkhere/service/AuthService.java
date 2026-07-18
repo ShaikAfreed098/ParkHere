@@ -72,6 +72,7 @@ public class AuthService {
                 .phone(request.getPhone())
                 .isVerified(false)
                 .verificationToken(otp)
+                .otpGeneratedAt(LocalDateTime.now())
                 .roles(new HashSet<>(Collections.singletonList(userRole)))
                 .build();
 
@@ -101,8 +102,13 @@ public class AuthService {
             throw new BadRequestException("Invalid OTP code");
         }
 
+        if (user.getOtpGeneratedAt() == null || user.getOtpGeneratedAt().plusMinutes(10).isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("OTP has expired. Please request a new code.");
+        }
+
         user.setIsVerified(true);
         user.setVerificationToken(null);
+        user.setOtpGeneratedAt(null);
         userRepository.save(user);
 
         auditLogRepository.save(AuditLog.builder()
@@ -152,6 +158,7 @@ public class AuthService {
 
         String token = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         user.setPasswordResetToken(token);
+        user.setResetTokenGeneratedAt(LocalDateTime.now());
         userRepository.save(user);
 
         emailService.sendPasswordResetEmail(user.getEmail(), token);
@@ -170,8 +177,13 @@ public class AuthService {
         User user = userRepository.findByPasswordResetToken(token)
                 .orElseThrow(() -> new BadRequestException("Invalid or expired password reset token"));
 
+        if (user.getResetTokenGeneratedAt() == null || user.getResetTokenGeneratedAt().plusHours(1).isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Password reset token has expired. Please request a new token.");
+        }
+
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setPasswordResetToken(null);
+        user.setResetTokenGeneratedAt(null);
         userRepository.save(user);
 
         auditLogRepository.save(AuditLog.builder()

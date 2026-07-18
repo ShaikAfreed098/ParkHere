@@ -62,8 +62,8 @@ public class BookingService {
     public BookingDto createBooking(BookingRequest request) {
         User user = getCurrentUser();
 
-        // 1. Fetch slot
-        ParkingSlot slot = parkingSlotRepository.findById(request.getParkingSlotId())
+        // 1. Fetch slot with pessimistic write lock to prevent race conditions
+        ParkingSlot slot = parkingSlotRepository.findByIdWithLock(request.getParkingSlotId())
                 .orElseThrow(() -> new ResourceNotFoundException("Parking slot not found"));
 
         if ("DISABLED".equals(slot.getStatus())) {

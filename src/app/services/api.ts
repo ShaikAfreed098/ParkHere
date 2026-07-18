@@ -4,20 +4,15 @@ const API_BASE_URL = "http://localhost:8080/api/v1";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Request Interceptor to attach JWT token
+// Request Interceptor (noop as cookies are sent automatically)
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("parkhere_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+  (config) => config,
   (error) => Promise.reject(error)
 );
 
@@ -26,10 +21,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear token and redirect to login if unauthorized
-      localStorage.removeItem("parkhere_token");
       localStorage.removeItem("parkhere_user");
-      // Optionally notify application shell to transition to login view
     }
     return Promise.reject(error);
   }
@@ -47,8 +39,7 @@ export const authService = {
   },
   login: async (payload: any) => {
     const res = await api.post("/auth/login", payload);
-    if (res.data && res.data.accessToken) {
-      localStorage.setItem("parkhere_token", res.data.accessToken);
+    if (res.data && res.data.user) {
       localStorage.setItem("parkhere_user", JSON.stringify(res.data.user));
     }
     return res.data;
@@ -61,8 +52,12 @@ export const authService = {
     const res = await api.post(`/auth/reset-password?token=${encodeURIComponent(token)}&password=${encodeURIComponent(pass)}`);
     return res.data;
   },
-  logout: () => {
-    localStorage.removeItem("parkhere_token");
+  logout: async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (e) {
+      console.error("Backend logout failed:", e);
+    }
     localStorage.removeItem("parkhere_user");
   },
   getCurrentUser: () => {

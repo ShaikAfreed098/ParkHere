@@ -3,6 +3,9 @@ package com.parkhere.service;
 import com.parkhere.entity.Booking;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -18,6 +21,41 @@ public class EmailService {
 
     @Value("${app.email.mock-dir}")
     private String mockEmailDir;
+
+    @Value("${app.email.use-mock:true}")
+    private boolean useMock;
+
+    private final JavaMailSender mailSender;
+
+    public EmailService(@Autowired(required = false) JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
+
+    private void sendEmail(String recipient, String subject, String body) {
+        if (useMock) {
+            writeEmailToFile(recipient, subject, body);
+        } else {
+            sendRealEmail(recipient, subject, body);
+        }
+    }
+
+    private void sendRealEmail(String recipient, String subject, String body) {
+        if (mailSender == null) {
+            log.error("JavaMailSender is not initialized. Please verify configuration properties.");
+            return;
+        }
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(recipient);
+            message.setSubject(subject);
+            message.setText(body);
+            message.setFrom("no-reply@parkhere.in");
+            mailSender.send(message);
+            log.info("Real transactional email dispatched to {}", recipient);
+        } catch (Exception ex) {
+            log.error("Failed to send real email to {}", recipient, ex);
+        }
+    }
 
     private void writeEmailToFile(String recipient, String subject, String body) {
         try {
@@ -48,7 +86,7 @@ public class EmailService {
                 "This code will expire in 10 minutes.\n\n" +
                 "Happy Parking!\n" +
                 "Team ParkHere";
-        writeEmailToFile(email, subject, body);
+        sendEmail(email, subject, body);
     }
 
     public void sendPasswordResetEmail(String email, String token) {
@@ -61,7 +99,7 @@ public class EmailService {
                 "If you did not request this, please ignore this email.\n\n" +
                 "Regards,\n" +
                 "Team ParkHere";
-        writeEmailToFile(email, subject, body);
+        sendEmail(email, subject, body);
     }
 
     public void sendBookingConfirmationEmail(String email, Booking booking) {
@@ -84,6 +122,6 @@ public class EmailService {
                 "Please arrive before your reservation expires.\n\n" +
                 "Thank you for choosing ParkHere.\n" +
                 "Team ParkHere";
-        writeEmailToFile(email, subject, body);
+        sendEmail(email, subject, body);
     }
 }

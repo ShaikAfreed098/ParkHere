@@ -41,7 +41,38 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
-        return ResponseEntity.ok(response);
+        
+        org.springframework.http.ResponseCookie cookie = org.springframework.http.ResponseCookie.from("parkhere_at", response.getAccessToken())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(900) // 15 minutes matching token expiry
+                .build();
+        
+        response.setAccessToken(null); // Clear from response body for security
+        
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout() {
+        org.springframework.http.ResponseCookie cookie = org.springframework.http.ResponseCookie.from("parkhere_at", "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(0) // Clear immediately
+                .build();
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Logged out successfully.");
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response);
     }
 
     @PostMapping("/forgot-password")
