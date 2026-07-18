@@ -37,6 +37,7 @@ public class ParkingLot {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(columnDefinition = "numeric(3,2)")
     private Double rating = 0.0;
 
     @Column(name = "reviews_count")

@@ -26,7 +26,7 @@ public class Review {
     @JoinColumn(name = "parking_lot_id", nullable = false)
     private ParkingLot parkingLot;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "numeric(3,2)")
     private Double rating;
 
     @Column(columnDefinition = "TEXT")
