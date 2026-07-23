@@ -59,7 +59,7 @@ export function Btn({
   disabled?: boolean; loading?: boolean; full?: boolean; icon?: React.ReactNode; iconRight?: React.ReactNode;
 }) {
   const V: Record<string, string> = {
-    primary: "bg-primary text-white hover:bg-blue-700 shadow-sm shadow-blue-500/20",
+    primary: "bg-primary text-primary-foreground hover:bg-blue-700 dark:hover:bg-blue-600 shadow-sm shadow-blue-500/20",
     secondary: "bg-[#14B8A6] text-white hover:bg-teal-600 shadow-sm shadow-teal-500/20",
     ghost: "bg-transparent text-foreground hover:bg-muted",
     outline: "border border-border bg-transparent text-foreground hover:bg-muted",

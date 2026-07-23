@@ -313,7 +313,7 @@ export function SearchScreen({ nav }: { nav: (s: Screen) => void }) {
         ].map(f => (
           <button key={f.label} onClick={f.toggle}
             className={cn("px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 cursor-pointer",
-              f.active ? "bg-primary text-white border-primary" : "bg-card text-foreground border-border hover:border-primary/40")}>
+              f.active ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:border-primary/40")}>
             {f.label}
           </button>
         ))}
@@ -691,7 +691,7 @@ export function SlotSelection({ nav }: { nav: (s: Screen) => void }) {
     available: "bg-blue-100 border-blue-200 text-blue-500 hover:bg-blue-200 hover:border-blue-400 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/40 cursor-pointer",
     occupied: "bg-muted border-border text-muted-foreground cursor-not-allowed opacity-60",
     reserved: "bg-amber-100 border-amber-200 text-amber-500 cursor-not-allowed dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400",
-    selected: "bg-primary border-primary text-white shadow-md shadow-primary/30 cursor-pointer",
+    selected: "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/30 cursor-pointer",
     disabled: "bg-muted/50 border-dashed border-muted-foreground/20 text-muted-foreground/30 cursor-not-allowed",
     ev: "bg-green-100 border-green-200 text-green-500 hover:bg-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 cursor-pointer",
     accessible: "bg-teal-100 border-teal-200 text-teal-500 hover:bg-teal-200 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400 cursor-pointer",
@@ -733,7 +733,7 @@ export function SlotSelection({ nav }: { nav: (s: Screen) => void }) {
           {floors.map((f, idx) => (
             <button key={f.id} onClick={() => { setSelectedFloorIdx(idx); setSelectedSlot(null); setSelectedSlotObj(null); }}
               className={cn("px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer", 
-                selectedFloorIdx === idx ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80")}>
+                selectedFloorIdx === idx ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80")}>
               {f.floorName}
             </button>
           ))}
@@ -797,7 +797,7 @@ export function SlotSelection({ nav }: { nav: (s: Screen) => void }) {
 
       <div className={cn("transition-all duration-300", selectedSlot ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none")}>
         {selectedSlot && (
-          <Crd className="bg-primary text-white border-primary p-5 flex items-center gap-4 flex-wrap">
+          <Crd className="bg-primary text-primary-foreground border-primary p-5 flex items-center gap-4 flex-wrap">
             <div className="w-12 h-12 bg-white/20 rounded-[14px] flex items-center justify-center flex-shrink-0">
               <CircleParking className="w-6 h-6" />
             </div>
@@ -933,7 +933,7 @@ export function BookingConfirmation({ nav }: { nav: (s: Screen) => void }) {
             {vehicles.map((v, idx) => (
               <button key={v.id} onClick={() => setSelectedVehicleIdx(idx)}
                 className={cn("px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer",
-                  selectedVehicleIdx === idx ? "bg-primary border-primary text-white" : "bg-card border-border text-muted-foreground hover:bg-muted/30")}>
+                  selectedVehicleIdx === idx ? "bg-primary border-primary text-primary-foreground" : "bg-card border-border text-muted-foreground hover:bg-muted/30")}>
                 {v.registrationNumber} ({v.modelName})
               </button>
             ))}
